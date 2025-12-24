@@ -1,4 +1,4 @@
-import { Diamond, Triangle, Square, Circle, Hexagon } from 'lucide-react';
+import { RotateCcw, Hand, Scroll, Plus } from 'lucide-react';
 
 export const GRID_SIZE = 5;
 
@@ -19,8 +19,26 @@ export const INITIAL_COUNTS = {
 
 export const BONUS_COLORS = ['blue', 'white', 'green', 'black', 'red'];
 
+// 🌀 螺旋填充顺序 (之前如果缺了这个，刷新盘面会报错)
 export const SPIRAL_ORDER = [
-  [2, 2], // Center
-  [2, 3], [3, 3], [3, 2], [3, 1], [2, 1], [1, 1], [1, 2], [1, 3], // Inner Ring
-  [1, 4], [2, 4], [3, 4], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0], [3, 0], [2, 0], [1, 0], [0, 0], [0, 1], [0, 2], [0, 3], [0, 4] // Outer Ring
+  [2, 2],
+  [2, 3], [3, 3], [3, 2], [3, 1], [2, 1], [1, 1], [1, 2], [1, 3],
+  [1, 4], [2, 4], [3, 4], [4, 4], [4, 3], [4, 2], [4, 1], [4, 0], [3, 0], [2, 0], [1, 0], [0, 0], [0, 1], [0, 2], [0, 3], [0, 4]
+];
+
+// ⚡ 特殊能力定义 (之前如果缺了这个，读取 realCards.js 会直接白屏)
+export const ABILITIES = {
+  AGAIN:     { id: 'again',     label: 'Play Again',     icon: RotateCcw },
+  STEAL:     { id: 'steal',     label: 'Steal Gem',      icon: Hand },
+  SCROLL:    { id: 'scroll',    label: 'Take Scroll',    icon: Scroll },
+  BONUS_GEM: { id: 'bonus_gem', label: 'Take Gem',       icon: Plus },
+  NONE:      { id: 'none',      label: '',               icon: null }
+};
+
+// 🟢 新增：皇室卡定义 (Royal Cards)
+export const ROYAL_CARDS = [
+  { id: 'royal-3pts', points: 3, bonusColor: 'gold', ability: 'none', label: 'The Queen' },
+  { id: 'royal-again', points: 2, bonusColor: 'gold', ability: 'again', label: 'The Merchant' },
+  { id: 'royal-scroll', points: 2, bonusColor: 'gold', ability: 'scroll', label: 'The Judge' },
+  { id: 'royal-steal', points: 2, bonusColor: 'gold', ability: 'steal', label: 'The Thief' }
 ];

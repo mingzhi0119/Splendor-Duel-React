@@ -1,4 +1,6 @@
 import { GEM_TYPES, INITIAL_COUNTS, BONUS_COLORS } from './constants';
+// 🟢 确保引入了真实数据
+import { REAL_CARDS } from './data/realCards';
 
 // 洗牌算法
 export const shuffleArray = (array) => {
@@ -36,44 +38,39 @@ export const getDirection = (r1, c1, r2, c2) => {
   return { dr: r2 - r1, dc: c2 - c1 };
 };
 
-// 生成随机造价 (辅助函数)
-const generateRandomCost = (level) => {
-  const cost = {};
-  const totalCost = level === 1 ? 2 : level === 2 ? 5 : 8;
-  const colors = [...BONUS_COLORS].sort(() => 0.5 - Math.random()).slice(0, 2);
-  let remaining = totalCost;
-  colors.forEach(color => {
-    if (remaining > 0) {
-      const amt = Math.ceil(Math.random() * (remaining / 2));
-      cost[color] = amt;
-      remaining -= amt;
-    }
-  });
-  if (remaining > 0) cost[colors[0]] = (cost[colors[0]] || 0) + remaining;
-  return cost;
-};
-
-// 生成卡组
-export const generateDeck = (level, count = 12) => {
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `l${level}-${i}-${Date.now()}`,
-    level,
-    points: level === 1 ? (Math.random() > 0.7 ? 1 : 0) : level === 2 ? Math.floor(Math.random() * 3) + 1 : Math.floor(Math.random() * 4) + 3,
-    crowns: Math.random() > 0.8 ? 1 : 0,
-    bonusColor: BONUS_COLORS[Math.floor(Math.random() * BONUS_COLORS.length)],
-    cost: generateRandomCost(level),
+// 🟢 生成卡组：使用 REAL_CARDS
+export const generateDeck = (level) => {
+  // 严格过滤：只取对应 Level 的卡
+  // 注意：我们在 realCards.js 里已经硬编码了 level: 1, 2, 3，这里过滤绝对安全
+  const levelCards = REAL_CARDS.filter(c => c.level === level);
+  
+  const deck = levelCards.map(card => ({
+    ...card,
+    id: `${card.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
   }));
+  
+  return shuffleArray(deck);
 };
 
-// 计算买卡逻辑
+// 🟢 计算买卡逻辑 (支持 bonusCount 双倍加成)
 export const calculateCost = (card, pid, inventories, playerTableau) => {
   const inv = inventories[pid];
-  const bonuses = BONUS_COLORS.reduce((acc, color) => { acc[color] = playerTableau[pid].filter(c => c.bonusColor === color).length; return acc; }, {});
+  
+  // 计算玩家已有的宝石加成 (累加 bonusCount)
+  const bonuses = BONUS_COLORS.reduce((acc, color) => { 
+    acc[color] = playerTableau[pid]
+      .filter(c => c.bonusColor === color)
+      .reduce((sum, c) => sum + (c.bonusCount || 1), 0);
+    return acc; 
+  }, {});
+
   let totalGoldNeeded = 0;
   for (const [color, costAmt] of Object.entries(card.cost)) {
-    const discount = bonuses[color] || 0;
+    // 珍珠没有折扣
+    const discount = color === 'pearl' ? 0 : (bonuses[color] || 0);
     const actualCost = Math.max(0, costAmt - discount);
     const playerGemCount = inv[color] || 0;
+    
     if (playerGemCount < actualCost) {
       totalGoldNeeded += (actualCost - playerGemCount);
     }
