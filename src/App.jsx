@@ -57,7 +57,7 @@ export default function SplendorDuelBoard() {
     p1: { blue: 0, white: 0, green: 0, black: 0, red: 0, gold: 0, pearl: 0 },
     p2: { blue: 0, white: 0, green: 0, black: 0, red: 0, gold: 0, pearl: 0 },
   });
-  const [privileges, setPrivileges] = useState({ p1: 0, p2: 0 });
+  const [privileges, setPrivileges] = useState({ p1: 0, p2: 1 });
   const [playerTableau, setPlayerTableau] = useState({ p1: [], p2: [] });
   const [playerReserved, setPlayerReserved] = useState({ p1: [], p2: [] });
 
@@ -672,7 +672,7 @@ export default function SplendorDuelBoard() {
                         'border-slate-700/50'} 
                     `}>
                         <div className="text-right text-[10px] text-slate-500 mb-1 font-mono">Bag: {bag.length}</div>
-                        <div className="grid grid-cols-5 gap-2 w-[300px] h-[300px]">
+                        <div className="grid grid-cols-5 grid-rows-5 gap-2 w-[300px] h-[300px]">
                              {board.map((row, r) => row.map((gem, c) => {
                                 const isSelectedGem = isSelected(r, c);
                                 const isGold = gem && gem.type.id === 'gold';
