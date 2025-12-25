@@ -31,7 +31,7 @@ const RESOLUTION_SETTINGS = {
     }
 };
 
-export default function SplendorDuelBoard() {
+export default function GemDuelBoard() {
   const [board, setBoard] = useState([]);
   const [bag, setBag] = useState([]);
   const [turn, setTurn] = useState('p1');

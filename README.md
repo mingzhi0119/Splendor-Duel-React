@@ -14,3 +14,5 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+Disclaimer: > This project is an unofficial fan-made implementation of the board game mechanics inspired by Splendor Duel. All trademarks and copyrights belong to their respective owners (Space Cowboys / Asmodee). This is for educational and non-commercial purposes only.
