@@ -55,6 +55,7 @@ const applyAction = (state, action) => {
         const totalGems = Object.values(invToCheck).reduce((a, b) => a + b, 0);
         if (totalGems > 10) {
             newState.gameMode = 'DISCARD_EXCESS_GEMS';
+            // Do not switch turn, wait for discard
             if (!newState.nextPlayerAfterRoyal) newState.nextPlayerAfterRoyal = nextPlayer;
             return;
         }

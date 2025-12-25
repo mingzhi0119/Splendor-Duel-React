@@ -33,12 +33,15 @@ export const GAME_CONFIG = {
 
 export const useSettings = (defaultResolution = '2k') => {
     const [resolution, setResolution] = useState(defaultResolution);
+    const [theme, setTheme] = useState('dark');
 
     const settings = RESOLUTION_SETTINGS[resolution];
 
     return {
         resolution,
         setResolution,
+        theme,
+        setTheme,
         settings,
         RESOLUTION_SETTINGS,
         GAME_CONFIG

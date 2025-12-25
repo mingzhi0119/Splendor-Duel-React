@@ -1,6 +1,12 @@
 import React from 'react';
 
 export const FloatingText = ({ quantity, label }) => {
+  const colorClass = 
+    label.toLowerCase() === 'gold' ? 'text-yellow-400' :
+    label.toLowerCase() === 'pearl' ? 'text-pink-400' :
+    label.toLowerCase() === 'privilege' ? 'text-amber-400' :
+    'text-emerald-400';
+
   return (
     <>
       <style>
@@ -17,8 +23,8 @@ export const FloatingText = ({ quantity, label }) => {
         `}
       </style>
       <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none z-50 whitespace-nowrap drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] animate-float-up-fade flex items-center gap-1">
-        <span className="text-white font-black text-lg">{quantity}</span>
-        <span className="text-emerald-400 font-bold text-sm uppercase tracking-wider">{label}</span>
+        <span className={`font-black text-lg ${quantity.startsWith('+') ? 'text-white' : 'text-red-400'}`}>{quantity}</span>
+        <span className={`${colorClass} font-bold text-sm uppercase tracking-wider`}>{label}</span>
       </div>
     </>
   );

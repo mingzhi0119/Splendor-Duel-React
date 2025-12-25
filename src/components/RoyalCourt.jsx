@@ -2,9 +2,11 @@ import React from 'react';
 import { Crown } from 'lucide-react';
 import { Card } from './Card';
 
-export const RoyalCourt = ({ royalDeck, gameMode, handleSelectRoyal }) => {
+export const RoyalCourt = ({ royalDeck, gameMode, handleSelectRoyal, theme }) => {
     return (
-        <div className="flex flex-col gap-4 items-center bg-slate-900/40 p-4 rounded-3xl border border-slate-800/50 backdrop-blur-sm shrink-0 w-fit">
+        <div className={`flex flex-col gap-4 items-center p-4 rounded-3xl border backdrop-blur-sm shrink-0 w-fit transition-colors duration-500
+            ${theme === 'dark' ? 'bg-slate-900/40 border-slate-800/50' : 'bg-white/40 border-slate-200/50'}
+        `}>
             <h2 className="text-[10px] font-bold text-yellow-500/70 uppercase tracking-widest flex items-center gap-2 mb-2">
                 <Crown size={14} /> Royal Court
             </h2>
