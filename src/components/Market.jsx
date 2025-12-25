@@ -16,13 +16,13 @@ export const Market = ({
 }) => {
     return (
         <div className="flex flex-col gap-4 items-center shrink-0 w-fit">
-            <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-1 mb-1 w-full text-center">Market</h2>
+            <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 text-center">Market</h2>
             {[3, 2, 1].map(lvl => (
                 <div key={lvl} className="flex gap-3 justify-center items-center">
                     <div
                         onClick={() => handleReserveDeck(lvl)}
                         className={`w-20 h-28 shrink-0 rounded-lg border-2 flex flex-col items-center justify-center transition-all duration-200 shadow-md relative overflow-hidden group
-                            ${gameMode === 'IDLE' && decks[lvl].length > 0 ? 'border-slate-600 cursor-pointer hover:border-emerald-400 hover:scale-105' : 'border-slate-800 cursor-default opacity-40'}
+                            ${gameMode === 'IDLE' && decks[lvl].length > 0 ? 'border-slate-600 cursor-pointer hover:border-emerald-400 hover:scale-105 hover:-translate-y-1 active:scale-95 active:translate-y-0' : 'border-slate-800 cursor-default opacity-40'}
                         `}
                     >
                         <div className="absolute inset-0 bg-slate-900" />

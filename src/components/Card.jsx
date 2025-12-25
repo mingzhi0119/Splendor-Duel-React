@@ -64,8 +64,9 @@ export const Card = ({ card, canBuy, onClick, onReserve, isReservedView = false,
   return (
     <div 
         onClick={handleCardClick}
-        className={`relative w-24 h-32 rounded-lg border transition-all duration-200 bg-gradient-to-b ${bgGradient} overflow-hidden
-        ${(canBuy || isRoyal) ? 'border-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)] cursor-pointer hover:scale-105' : 'border-slate-600 opacity-90 cursor-default'}
+        className={`relative w-24 h-32 rounded-lg border transition-all duration-200 bg-gradient-to-b ${bgGradient} overflow-hidden group
+        ${(canBuy && !isRoyal) ? 'border-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)] cursor-pointer hover:scale-105 hover:-translate-y-1 active:scale-95 active:translate-y-0' : 
+          isRoyal ? 'border-yellow-700/50' : 'border-slate-600 opacity-90 cursor-default'}
     `}>
       
       {/* 1. Top Left: Points & Ability */}
@@ -122,7 +123,7 @@ export const Card = ({ card, canBuy, onClick, onReserve, isReservedView = false,
         <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20 z-20">
              <button 
                 onClick={(e) => { e.stopPropagation(); onReserve(card); }}
-                className="bg-yellow-500 hover:bg-yellow-400 p-1.5 rounded-full text-white shadow-lg transition-transform hover:scale-110"
+                className="bg-yellow-500 hover:bg-yellow-400 p-1.5 rounded-full text-white shadow-lg transition-transform hover:scale-110 active:scale-90"
                 title="Reserve"
              >
                  <Download size={16} />

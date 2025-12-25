@@ -31,7 +31,7 @@ export const useActionHistory = () => {
     }
   }, [history.length]);
 
-  // Safety: Ensure currentIndex never exceeds history length (Fixes 2/1 bug)
+  // Safety: Ensure currentIndex never exceeds history length
   useEffect(() => {
     if (history.length > 0 && currentIndex >= history.length) {
       setCurrentIndex(history.length - 1);

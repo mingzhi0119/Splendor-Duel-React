@@ -17,6 +17,9 @@ const INITIAL_STATE_SKELETON = {
     royalDeck: ROYAL_CARDS || [], playerRoyals: { p1: [], p2: [] },
     royalMilestones: { p1: { 3: false, 6: false }, p2: { 3: false, 6: false } },
     extraPoints: { p1: 0, p2: 0 },
+    extraCrowns: { p1: 0, p2: 0 },
+    lastFeedback: null,
+    toastMessage: null,
     winner: null
 };
 
@@ -24,12 +27,25 @@ const applyAction = (state, action) => {
     // Deep clone state to ensure immutability during replay
     // Handle null state for safety (though usually handled by INIT)
     const newState = state ? JSON.parse(JSON.stringify(state)) : null;
+    if (newState) {
+        newState.lastFeedback = null; // Clear previous feedback to prevent residuals
+        newState.toastMessage = null;
+    }
+
+    // Helper to aggregate feedback
+    const addFeedback = (player, type, diff) => {
+        if (!newState.lastFeedback) newState.lastFeedback = { uid: Date.now() + '-' + Math.random(), items: [] };
+        const existing = newState.lastFeedback.items.find(i => i.player === player && i.type === type);
+        if (existing) existing.diff += diff;
+        else newState.lastFeedback.items.push({ player, type, diff });
+    };
+
     const { type, payload } = action;
 
     // Helper to finalize turn (check win conditions, etc.)
     const finalizeTurn = (nextPlayer, instantInv = null) => {
         const getPoints = (pid) => newState.playerTableau[pid].reduce((a, c) => a + c.points, 0) + newState.playerRoyals[pid].reduce((a, c) => a + c.points, 0) + (newState.extraPoints ? newState.extraPoints[pid] : 0);
-        const getCrowns = (pid) => [...newState.playerTableau[pid], ...newState.playerRoyals[pid]].reduce((a, c) => a + (c.crowns || 0), 0);
+        const getCrowns = (pid) => [...newState.playerTableau[pid], ...newState.playerRoyals[pid]].reduce((a, c) => a + (c.crowns || 0), 0) + (newState.extraCrowns ? newState.extraCrowns[pid] : 0);
         const getColorPoints = (pid, color) => newState.playerTableau[pid].filter(c => c.bonusColor === color).reduce((a, c) => a + c.points, 0);
 
         if (getPoints(newState.turn) >= 20 || getCrowns(newState.turn) >= 10) { newState.winner = newState.turn; return; }
@@ -63,11 +79,24 @@ const applyAction = (state, action) => {
                 if (gemType === 'pearl') pearlCount++;
                 colorCounts[gemType] = (colorCounts[gemType] || 0) + 1;
             });
+            
+            // Feedback for Pearl/Gold
+            const specialGems = coords.map(({r,c}) => state.board[r][c].type.id).filter(t => t === 'pearl' || t === 'gold');
+            specialGems.forEach(t => addFeedback(newState.turn, t, 1));
+
             // Privilege Logic
             if (pearlCount >= 2 || Object.values(colorCounts).some(c => c >= 3)) {
                 const opponent = newState.turn === 'p1' ? 'p2' : 'p1';
-                if ((newState.privileges.p1 + newState.privileges.p2) < 3) newState.privileges[opponent]++;
-                else if (newState.privileges[newState.turn] > 0) { newState.privileges[newState.turn]--; newState.privileges[opponent]++; }
+                if ((newState.privileges.p1 + newState.privileges.p2) < 3) {
+                    newState.privileges[opponent]++;
+                    addFeedback(opponent, 'privilege', 1);
+                }
+                else if (newState.privileges[newState.turn] > 0) { 
+                    newState.privileges[newState.turn]--; 
+                    addFeedback(newState.turn, 'privilege', -1);
+                    newState.privileges[opponent]++; 
+                    addFeedback(opponent, 'privilege', 1);
+                }
             }
             newState.inventories[newState.turn] = newInv;
             finalizeTurn(newState.turn === 'p1' ? 'p2' : 'p1', newInv);
@@ -78,8 +107,16 @@ const applyAction = (state, action) => {
             const opponent = newState.turn === 'p1' ? 'p2' : 'p1';
             if (!newState.board.every(row => row.every(g => g.type.id === 'empty'))) {
                 // Give privilege to opponent if board wasn't empty
-                if ((newState.privileges.p1 + newState.privileges.p2) < 3) newState.privileges[opponent]++;
-                else if (newState.privileges[newState.turn] > 0) { newState.privileges[newState.turn]--; newState.privileges[opponent]++; }
+                if ((newState.privileges.p1 + newState.privileges.p2) < 3) {
+                    newState.privileges[opponent]++;
+                    addFeedback(opponent, 'privilege', 1);
+                }
+                else if (newState.privileges[newState.turn] > 0) { 
+                    newState.privileges[newState.turn]--; 
+                    addFeedback(newState.turn, 'privilege', -1);
+                    newState.privileges[opponent]++; 
+                    addFeedback(opponent, 'privilege', 1);
+                }
             }
             for (let i = 0; i < SPIRAL_ORDER.length; i++) {
                 const [r, c] = SPIRAL_ORDER[i];
@@ -87,6 +124,25 @@ const applyAction = (state, action) => {
                     newState.board[r][c] = newState.bag.pop();
                 }
             }
+            break;
+        }
+
+        case 'TAKE_BONUS_GEM': {
+            const { r, c } = payload;
+            const gem = newState.board[r][c];
+            const gemType = gem.type.id;
+            
+            newState.board[r][c] = { type: GEM_TYPES.EMPTY, uid: `empty-${r}-${c}-${Date.now()}` };
+            newState.inventories[newState.turn][gemType] = (newState.inventories[newState.turn][gemType] || 0) + 1;
+            
+            newState.bonusGemTarget = null;
+            
+            const totalGems = Object.values(newState.inventories[newState.turn]).reduce((a, b) => a + b, 0);
+            if (totalGems > 10) {
+                newState.gameMode = 'DISCARD_EXCESS_GEMS';
+                return newState;
+            }
+            finalizeTurn(newState.nextPlayerAfterRoyal || (newState.turn === 'p1' ? 'p2' : 'p1'));
             break;
         }
 
@@ -111,8 +167,10 @@ const applyAction = (state, action) => {
 
         case 'DEBUG_ADD_CROWNS': {
             const pid = payload;
-            // Add a dummy card with crowns
-            newState.playerTableau[pid].push({ id: `debug-crown-${Date.now()}`, crowns: 1, points: 0, cost: {}, bonusColor: 'white' });
+            // Add crowns directly without adding a card
+            if (!newState.extraCrowns) newState.extraCrowns = { p1: 0, p2: 0 };
+            newState.extraCrowns[pid] = (newState.extraCrowns[pid] || 0) + 1;
+            addFeedback(pid, 'crown', 1);
             finalizeTurn(newState.turn); // Check win condition
             break;
         }
@@ -126,6 +184,12 @@ const applyAction = (state, action) => {
             break;
         }
 
+        case 'INITIATE_BUY_JOKER': {
+            newState.pendingBuy = payload;
+            newState.gameMode = 'SELECT_CARD_COLOR';
+            return newState;
+        }
+
         case 'BUY_CARD': {
             const { card, source, marketInfo } = payload;
             const player = newState.turn;
@@ -133,6 +197,8 @@ const applyAction = (state, action) => {
             const tableau = newState.playerTableau[player];
             
             // 1. Calculate Payment & Deduct Gems
+            newState.pendingBuy = null; // Clear pending state
+
             const bonuses = BONUS_COLORS.reduce((acc, color) => {
                 acc[color] = tableau.filter(c => c.bonusColor === color).reduce((sum, c) => sum + (c.bonusCount || 1), 0);
                 return acc;
@@ -161,6 +227,7 @@ const applyAction = (state, action) => {
 
             // 2. Add Card to Tableau
             newState.playerTableau[player].push(card);
+            if (card.crowns > 0) addFeedback(player, 'crown', card.crowns);
 
             // 3. Remove from Source & Refill
             if (source === 'market') {
@@ -182,15 +249,28 @@ const applyAction = (state, action) => {
             if (abilities.includes(ABILITIES.AGAIN.id)) nextTurn = player;
             
             if (abilities.includes(ABILITIES.BONUS_GEM.id)) {
-                newState.gameMode = 'BONUS_ACTION';
-                newState.bonusGemTarget = card.bonusColor;
-                return newState; // Wait for bonus action
+                const hasGem = newState.board.some(row => row.some(g => g.type.id === card.bonusColor));
+                if (hasGem) {
+                    newState.gameMode = 'BONUS_ACTION';
+                    newState.bonusGemTarget = card.bonusColor;
+                    return newState; // Wait for bonus action
+                } else {
+                    newState.toastMessage = "No matching gem available - Skill skipped";
+                }
             }
             
             if (abilities.includes(ABILITIES.SCROLL.id)) {
                 const opponent = player === 'p1' ? 'p2' : 'p1';
-                if ((newState.privileges.p1 + newState.privileges.p2) < 3) newState.privileges[player]++;
-                else if (newState.privileges[opponent] > 0) { newState.privileges[opponent]--; newState.privileges[player]++; }
+                if ((newState.privileges.p1 + newState.privileges.p2) < 3) {
+                    newState.privileges[player]++;
+                    addFeedback(player, 'privilege', 1);
+                }
+                else if (newState.privileges[opponent] > 0) { 
+                    newState.privileges[opponent]--; 
+                    addFeedback(opponent, 'privilege', -1);
+                    newState.privileges[player]++; 
+                    addFeedback(player, 'privilege', 1);
+                }
             }
 
             finalizeTurn(nextTurn);
@@ -199,6 +279,12 @@ const applyAction = (state, action) => {
 
         case 'INITIATE_RESERVE': {
             newState.pendingReserve = payload;
+            newState.gameMode = 'RESERVE_WAITING_GEM';
+            return newState;
+        }
+
+        case 'INITIATE_RESERVE_DECK': {
+            newState.pendingReserve = { ...payload, isDeck: true };
             newState.gameMode = 'RESERVE_WAITING_GEM';
             return newState;
         }
@@ -223,12 +309,62 @@ const applyAction = (state, action) => {
                 if (newState.board[r][c].type.id === 'gold') {
                     newState.board[r][c] = { type: GEM_TYPES.EMPTY, uid: `empty-${r}-${c}-${Date.now()}` };
                     newState.inventories[player].gold++;
+                    addFeedback(player, 'gold', 1);
                 }
             }
             
             newState.pendingReserve = null;
             newState.gameMode = 'IDLE';
             finalizeTurn(player === 'p1' ? 'p2' : 'p1');
+            break;
+        }
+
+        case 'RESERVE_DECK': {
+            const { level, goldCoords } = payload;
+            const player = newState.turn;
+            
+            // Take top card from deck
+            if (newState.decks[level].length > 0) {
+                const card = newState.decks[level].pop();
+                newState.playerReserved[player].push(card);
+            }
+
+            // Take Gold if coords provided
+            if (goldCoords) {
+                const { r, c } = goldCoords;
+                if (newState.board[r][c].type.id === 'gold') {
+                    newState.board[r][c] = { type: GEM_TYPES.EMPTY, uid: `empty-${r}-${c}-${Date.now()}` };
+                    newState.inventories[player].gold++;
+                    addFeedback(player, 'gold', 1);
+                }
+            }
+            
+            newState.pendingReserve = null;
+            newState.gameMode = 'IDLE';
+            finalizeTurn(player === 'p1' ? 'p2' : 'p1');
+            break;
+        }
+
+        case 'STEAL_GEM': {
+            const { gemId } = payload;
+            const player = newState.turn;
+            const opponent = player === 'p1' ? 'p2' : 'p1';
+            
+            if (newState.inventories[opponent][gemId] > 0) {
+                newState.inventories[opponent][gemId]--;
+                newState.inventories[player][gemId] = (newState.inventories[player][gemId] || 0) + 1;
+            }
+
+            addFeedback(player, gemId, 1);
+            addFeedback(opponent, gemId, -1);
+            
+            const totalGems = Object.values(newState.inventories[player]).reduce((a, b) => a + b, 0);
+            if (totalGems > 10) {
+                 newState.gameMode = 'DISCARD_EXCESS_GEMS';
+                 return newState;
+            }
+
+            finalizeTurn(newState.nextPlayerAfterRoyal || opponent);
             break;
         }
 
@@ -249,6 +385,7 @@ const applyAction = (state, action) => {
             // 1. Move card from Royal Deck to Player
             newState.royalDeck = newState.royalDeck.filter(c => c.id !== card.id);
             newState.playerRoyals[player].push(card);
+            if (card.crowns > 0) addFeedback(player, 'crown', card.crowns);
 
             // 2. Handle Abilities
             const abilities = Array.isArray(card.ability) ? card.ability : (card.ability ? [card.ability] : []);
@@ -261,37 +398,75 @@ const applyAction = (state, action) => {
             }
 
             if (abilities.includes(ABILITIES.BONUS_GEM.id)) {
-                newState.gameMode = 'BONUS_ACTION';
-                newState.bonusGemTarget = card.bonusColor;
-                if (!newState.nextPlayerAfterRoyal) newState.nextPlayerAfterRoyal = nextTurn;
-                return newState;
+                const hasGem = newState.board.some(row => row.some(g => g.type.id === card.bonusColor));
+                if (hasGem) {
+                    newState.gameMode = 'BONUS_ACTION';
+                    newState.bonusGemTarget = card.bonusColor;
+                    if (!newState.nextPlayerAfterRoyal) newState.nextPlayerAfterRoyal = nextTurn;
+                    return newState;
+                } else {
+                    newState.toastMessage = "No matching gem available - Skill skipped";
+                }
             }
 
             if (abilities.includes(ABILITIES.STEAL.id)) {
-                 newState.gameMode = 'STEAL_ACTION';
-                 if (!newState.nextPlayerAfterRoyal) newState.nextPlayerAfterRoyal = nextTurn;
-                 return newState;
+                 const opponent = player === 'p1' ? 'p2' : 'p1';
+                 const hasStealable = Object.entries(newState.inventories[opponent]).some(([key, count]) => key !== 'gold' && count > 0);
+                 if (hasStealable) {
+                     newState.gameMode = 'STEAL_ACTION';
+                     if (!newState.nextPlayerAfterRoyal) newState.nextPlayerAfterRoyal = nextTurn;
+                     return newState;
+                 } else {
+                     newState.toastMessage = "No stealable gem from opponent - Skill skipped";
+                 }
             }
 
             if (abilities.includes(ABILITIES.SCROLL.id)) {
                 const opponent = player === 'p1' ? 'p2' : 'p1';
-                if ((newState.privileges.p1 + newState.privileges.p2) < 3) newState.privileges[player]++;
-                else if (newState.privileges[opponent] > 0) { newState.privileges[opponent]--; newState.privileges[player]++; }
+                if ((newState.privileges.p1 + newState.privileges.p2) < 3) {
+                    newState.privileges[player]++;
+                    addFeedback(player, 'privilege', 1);
+                }
+                else if (newState.privileges[opponent] > 0) { 
+                    newState.privileges[opponent]--; 
+                    addFeedback(opponent, 'privilege', -1);
+                    newState.privileges[player]++; 
+                    addFeedback(player, 'privilege', 1);
+                }
             }
 
             finalizeTurn(nextTurn);
             break;
         }
 
+        case 'ACTIVATE_PRIVILEGE': {
+            newState.gameMode = 'PRIVILEGE_ACTION';
+            return newState;
+        }
+
+        case 'USE_PRIVILEGE': {
+            const { r, c } = payload;
+            const gem = newState.board[r][c];
+            const gemType = gem.type.id;
+            
+            if (gemType === 'gold' || gemType === 'empty') return newState;
+
+            newState.board[r][c] = { type: GEM_TYPES.EMPTY, uid: `empty-${r}-${c}-${Date.now()}` };
+            newState.inventories[newState.turn][gemType] = (newState.inventories[newState.turn][gemType] || 0) + 1;
+            
+            if (newState.privileges[newState.turn] > 0) {
+                newState.privileges[newState.turn]--;
+                addFeedback(newState.turn, 'privilege', -1);
+            }
+
+            newState.gameMode = 'IDLE';
+            return newState;
+        }
+
         // ... Additional cases for BUY, RESERVE, etc. would go here. 
         // For brevity in this refactor plan, I am mapping the critical ones.
         // In a full implementation, every state mutation must be a case here.
         
-        case 'SKIP_TURN':
-            newState.gameMode = 'IDLE';
-            newState.turn = newState.turn === 'p1' ? 'p2' : 'p1';
-            break;
-            
         default:
             console.warn("Unknown action type:", type);
     }
@@ -355,7 +530,8 @@ export const useGameLogic = () => {
   const getCrownCount = (pid) => {
       if (!gameState) return 0;
       const allCards = [...gameState.playerTableau[pid], ...gameState.playerRoyals[pid]];
-      return allCards.reduce((acc, c) => acc + (c.crowns || 0), 0);
+      const extra = (gameState.extraCrowns && gameState.extraCrowns[pid]) || 0;
+      return allCards.reduce((acc, c) => acc + (c.crowns || 0), 0) + extra;
   };
 
   const validateGemSelection = (gems) => {
@@ -400,13 +576,24 @@ export const useGameLogic = () => {
 
     if (gameState.gameMode === 'BONUS_ACTION') {
         if (gem.type.id !== gameState.bonusGemTarget) { setErrorMsg(`Must select a ${gameState.bonusGemTarget} gem!`); return; }
-        // recordAction({ type: 'TAKE_BONUS_GEM', payload: { r, c } });
+        recordAction({ type: 'TAKE_BONUS_GEM', payload: { r, c } });
         return;
     }
 
     if (gameState.gameMode === 'RESERVE_WAITING_GEM') {
         if (gem.type.id !== 'gold') { setErrorMsg("Must select a Gold gem!"); return; }
-        recordAction({ type: 'RESERVE_CARD', payload: { ...gameState.pendingReserve, goldCoords: { r, c } } });
+        
+        if (gameState.pendingReserve.isDeck) {
+             recordAction({ type: 'RESERVE_DECK', payload: { ...gameState.pendingReserve, goldCoords: { r, c } } });
+        } else {
+             recordAction({ type: 'RESERVE_CARD', payload: { ...gameState.pendingReserve, goldCoords: { r, c } } });
+        }
+        return;
+    }
+
+    if (gameState.gameMode === 'PRIVILEGE_ACTION') {
+        if (gem.type.id === 'gold') { setErrorMsg("Cannot use Privilege on Gold."); return; }
+        recordAction({ type: 'USE_PRIVILEGE', payload: { r, c } });
         return;
     }
 
@@ -431,7 +618,18 @@ export const useGameLogic = () => {
   };
 
   const handleOpponentGemClick = (gemId) => {
-      // recordAction({ type: 'STEAL_GEM', payload: gemId });
+      if (!gameState || gameState.winner) return;
+      if (gameState.gameMode !== 'STEAL_ACTION') return;
+      
+      if (gemId === 'gold') {
+          setErrorMsg("Cannot steal Gold!");
+          return;
+      }
+      
+      const opponent = gameState.turn === 'p1' ? 'p2' : 'p1';
+      if (gameState.inventories[opponent][gemId] > 0) {
+          recordAction({ type: 'STEAL_GEM', payload: { gemId } });
+      }
   };
 
   const handleConfirmTake = () => {
@@ -478,11 +676,44 @@ export const useGameLogic = () => {
   };
   
   const handleReserveDeck = (level) => {
-      // Logic to dispatch RESERVE_DECK
+      if (gameState.winner) return;
+      if (gameState.playerReserved[gameState.turn].length >= 3) {
+          setErrorMsg("Reserve full (max 3).");
+          return;
+      }
+      if (gameState.decks[level].length === 0) {
+          setErrorMsg("Deck empty!");
+          return;
+      }
+
+      let hasGold = false;
+      for(let r=0; r<GRID_SIZE; r++) {
+          for(let c=0; c<GRID_SIZE; c++) {
+              if (gameState.board[r][c].type.id === 'gold') {
+                  hasGold = true;
+                  break;
+              }
+          }
+          if(hasGold) break;
+      }
+
+      const actionType = hasGold ? 'INITIATE_RESERVE_DECK' : 'RESERVE_DECK';
+      recordAction({ type: actionType, payload: { level } });
   };
 
   const initiateBuy = (card, source = 'market', marketInfo = {}) => {
       if (gameState.winner) return;
+      
+      // Check for Joker (Gold bonus color)
+      if (card.bonusColor === 'gold') {
+          if (calculateCost(card, gameState.turn, gameState.inventories, gameState.playerTableau)) {
+              recordAction({ type: 'INITIATE_BUY_JOKER', payload: { card, source, marketInfo } });
+          } else {
+              setErrorMsg("Cannot afford this card!");
+          }
+          return;
+      }
+
       if (calculateCost(card, gameState.turn, gameState.inventories, gameState.playerTableau)) {
           recordAction({ type: 'BUY_CARD', payload: { card, source, marketInfo } });
       } else {
@@ -491,7 +722,10 @@ export const useGameLogic = () => {
   };
 
   const handleSelectBonusColor = (color) => {
-      // Logic to dispatch BUY_CARD with bonus color
+      if (!gameState || gameState.gameMode !== 'SELECT_CARD_COLOR' || !gameState.pendingBuy) return;
+      const { card, source, marketInfo } = gameState.pendingBuy;
+      const modifiedCard = { ...card, bonusColor: color };
+      recordAction({ type: 'BUY_CARD', payload: { card: modifiedCard, source, marketInfo } });
   };
 
   const handleSelectRoyal = (royalCard) => {
@@ -503,10 +737,17 @@ export const useGameLogic = () => {
       if (gameState.winner) return;
       recordAction({ type: 'CANCEL_RESERVE' });
   };
-  const activatePrivilegeMode = () => { /* if (privileges[turn] > 0) { setGameMode('PRIVILEGE_ACTION'); setSelectedGems([]); } */ };
-  const handleSkipAction = () => {
-    if (gameState.winner) return;
-    recordAction({ type: 'SKIP_TURN' });
+  const activatePrivilegeMode = () => {
+      if (!gameState || gameState.winner) return;
+      if (gameState.gameMode !== 'IDLE') return;
+      
+      if (gameState.privileges[gameState.turn] > 0) {
+          const hasNonGold = gameState.board.some(row => row.some(g => g.type.id !== 'empty' && g.type.id !== 'gold'));
+          if (!hasNonGold) { setErrorMsg("No gems available."); return; }
+          
+          recordAction({ type: 'ACTIVATE_PRIVILEGE' });
+          setSelectedGems([]);
+      }
   };
   const checkAndInitiateBuyReserved = (card, execute = false) => { 
       if (!gameState) return false;
@@ -535,12 +776,19 @@ export const useGameLogic = () => {
     return () => clearTimeout(timeout);
   }, [errorMsg]);
   
+  // Sync toast message from game state to UI state
+  useEffect(() => {
+    if (gameState?.toastMessage) {
+      setErrorMsg(gameState.toastMessage);
+    }
+  }, [gameState?.toastMessage]);
+
   // If state is not yet initialized, return skeleton
   const safeState = gameState || INITIAL_STATE_SKELETON;
 
   return {
     state: { ...safeState, selectedGems, errorMsg },
-    handlers: { handleSelfGemClick, handleGemClick, handleOpponentGemClick, handleConfirmTake, handleReplenish, handleReserveCard, handleReserveDeck, initiateBuy, handleSelectBonusColor, handleSelectRoyal, handleCancelReserve, activatePrivilegeMode, checkAndInitiateBuyReserved, handleDebugAddCrowns, handleDebugAddPoints, handleSkipAction, handleForceRoyal },
+    handlers: { handleSelfGemClick, handleGemClick, handleOpponentGemClick, handleConfirmTake, handleReplenish, handleReserveCard, handleReserveDeck, initiateBuy, handleSelectBonusColor, handleSelectRoyal, handleCancelReserve, activatePrivilegeMode, checkAndInitiateBuyReserved, handleDebugAddCrowns, handleDebugAddPoints, handleForceRoyal },
     getters: { getPlayerScore, isSelected, getCrownCount },
     historyControls: { undo, redo, canUndo, canRedo, currentIndex, historyLength: history.length }
   };

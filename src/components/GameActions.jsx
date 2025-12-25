@@ -22,7 +22,7 @@ export const GameActions = ({
                 {selectedCount > 0 && (
                     <button 
                         onClick={handleConfirmTake}
-                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-lg transition-all animate-in fade-in zoom-in"
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-full font-bold shadow-lg transition-all animate-in fade-in zoom-in hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
                     >
                         <Check size={20} />
                         Take {selectedCount} Gem{selectedCount > 1 ? 's' : ''}
@@ -33,7 +33,7 @@ export const GameActions = ({
                 <button 
                     onClick={handleReplenish}
                     disabled={bagCount === 0 || gameMode !== 'IDLE' || selectedCount > 0}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all border
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all border active:scale-95
                         ${(bagCount > 0 && gameMode === 'IDLE' && selectedCount === 0)
                             ? 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700' 
                             : 'bg-slate-900/20 border-slate-800/50 text-slate-700 cursor-not-allowed opacity-50'
@@ -47,7 +47,7 @@ export const GameActions = ({
                 {gameMode === 'RESERVE_WAITING_GEM' && (
                     <button 
                         onClick={handleCancelReserve}
-                        className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-full font-bold shadow-lg"
+                        className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-full font-bold shadow-lg hover:-translate-y-0.5 active:scale-95"
                     >
                         <X size={20} />
                         Cancel Reserve
