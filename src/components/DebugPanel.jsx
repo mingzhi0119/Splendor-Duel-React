@@ -8,10 +8,10 @@ export function DebugPanel({ player, onAddCrowns, onAddPoints, onForceRoyal }) {
       </div>
       <div className="flex flex-col gap-2">
         <button onClick={onAddCrowns} className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] py-1 rounded border border-slate-600 transition-colors text-left px-2">
-          +3 Crowns (Add Card)
+          +1 Crown
         </button>
         <button onClick={onAddPoints} className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] py-1 rounded border border-slate-600 transition-colors text-left px-2">
-          +10 Points (Add Card)
+          +1 Point
         </button>
         <button onClick={onForceRoyal} className="bg-red-900/40 hover:bg-red-800/60 text-red-200 text-[9px] py-1 rounded border border-red-700 transition-colors font-bold">
           FORCE ROYAL SELECTION

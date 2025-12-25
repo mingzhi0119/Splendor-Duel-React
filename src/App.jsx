@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SkipForward, RotateCcw } from 'lucide-react';
 
 import { PlayerZone } from './components/PlayerZone';
 import { DebugPanel } from './components/DebugPanel';
@@ -8,16 +9,21 @@ import { Market } from './components/Market';
 import { GameBoard } from './components/GameBoard';
 import { StatusBar } from './components/StatusBar';
 import { GameActions } from './components/GameActions';
+import { ReplayControls } from './components/ReplayControls';
 import { RoyalCourt } from './components/RoyalCourt';
 
 import { useGameLogic } from './hooks/useGameLogic';
 import { useSettings } from './hooks/useSettings';
 
+
+
+
 export default function GemDuelBoard() {
   const [showDebug, setShowDebug] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
   const { resolution, setResolution, settings, RESOLUTION_SETTINGS } = useSettings();
 
-  const { state, handlers, getters, historyStack } = useGameLogic();
+  const { state, handlers, getters, historyControls } = useGameLogic();
 
   const {
     board, bag, turn, selectedGems, errorMsg, winner, gameMode,
@@ -30,12 +36,15 @@ export default function GemDuelBoard() {
     handleReplenish, handleReserveCard, handleReserveDeck, initiateBuy,
     handleSelectRoyal, handleCancelReserve, activatePrivilegeMode,
     checkAndInitiateBuyReserved, handleDebugAddCrowns, handleDebugAddPoints,
-    handleUndo, setGameMode, setNextPlayerAfterRoyal, handleSkipAction
+    handleForceRoyal, handleSkipAction
   } = handlers;
   
   const { getPlayerScore, isSelected } = getters;
   
   const opponent = turn === 'p1' ? 'p2' : 'p1';
+
+  // In Review mode, we override gameMode to 'REVIEW' to disable interactions in children
+  const effectiveGameMode = isReviewing ? 'REVIEW' : (winner ? 'GAME_OVER' : gameMode);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col items-center overflow-hidden">
@@ -53,13 +62,13 @@ export default function GemDuelBoard() {
             player="p1" 
             onAddCrowns={() => handleDebugAddCrowns('p1')}
             onAddPoints={() => handleDebugAddPoints('p1')}
-            onForceRoyal={() => { setGameMode('SELECT_ROYAL'); setNextPlayerAfterRoyal(turn === 'p1' ? 'p2' : 'p1'); }}
+            onForceRoyal={() => handleForceRoyal()}
           />
           <DebugPanel 
             player="p2" 
             onAddCrowns={() => handleDebugAddCrowns('p2')}
             onAddPoints={() => handleDebugAddPoints('p2')}
-            onForceRoyal={() => { setGameMode('SELECT_ROYAL'); setNextPlayerAfterRoyal(turn === 'p1' ? 'p2' : 'p1'); }}
+            onForceRoyal={() => handleForceRoyal()}
           />
         </div>
       )}
@@ -71,12 +80,21 @@ export default function GemDuelBoard() {
         RESOLUTION_SETTINGS={RESOLUTION_SETTINGS}
       />
 
-      <WinnerModal winner={winner} />
+      {winner && !isReviewing && <WinnerModal winner={winner} onReview={() => setIsReviewing(true)} />}
+
+      {isReviewing && (
+        <div className="fixed bottom-8 z-[100] animate-in fade-in slide-in-from-bottom-4">
+            <button onClick={() => setIsReviewing(false)} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-full font-bold shadow-2xl border border-slate-600 transition-all hover:scale-105">
+                <RotateCcw size={18} />
+                Return to Results
+            </button>
+        </div>
+      )}
 
       <div className="w-full h-screen flex flex-col p-0">
 
         {/* Opponent Zone */}
-        <div className={`w-full ${settings.zoneHeight} shrink-0 z-30 flex justify-center items-start pt-4 overflow-visible bg-slate-950/50 backdrop-blur-sm relative border-b border-slate-800/30 transition-all duration-500`}>
+        <div className={`w-full ${settings.zoneHeight} shrink-0 z-30 flex justify-center items-start pt-4 overflow-visible relative border-b border-slate-800/30 transition-all duration-500`}>
           <div className={`w-[98%] max-w-[1800px] transform ${settings.zoneScale} origin-top transition-transform duration-500`}>
             <PlayerZone 
                 player={opponent}
@@ -86,11 +104,11 @@ export default function GemDuelBoard() {
                 royals={playerRoyals[opponent]}
                 privileges={privileges[opponent]}
                 score={getPlayerScore(opponent)} 
-                isActive={false} 
+                isActive={false}
                 onBuyReserved={() => false}
                 onUsePrivilege={() => {}}
                 isPrivilegeMode={false}
-                isStealMode={gameMode === 'STEAL_ACTION' && turn !== opponent}
+                isStealMode={effectiveGameMode === 'STEAL_ACTION' && turn !== opponent}
                 isDiscardMode={false} 
                 onGemClick={handleOpponentGemClick}
             />
@@ -104,7 +122,7 @@ export default function GemDuelBoard() {
                 <Market 
                     market={market}
                     decks={decks}
-                    gameMode={gameMode}
+                    gameMode={effectiveGameMode}
                     turn={turn}
                     inventories={inventories}
                     playerTableau={playerTableau}
@@ -122,33 +140,47 @@ export default function GemDuelBoard() {
                         handleGemClick={handleGemClick}
                         isSelected={isSelected}
                         selectedGems={selectedGems}
-                        gameMode={gameMode}
+                        gameMode={effectiveGameMode}
                         bonusGemTarget={bonusGemTarget}
                     />
 
                     <GameActions 
-                        handleUndo={handleUndo}
-                        historyStack={historyStack}
                         handleReplenish={handleReplenish}
                         bag={bag}
-                        gameMode={gameMode}
+                        gameMode={effectiveGameMode}
                         handleConfirmTake={handleConfirmTake}
                         selectedGems={selectedGems}
                         handleCancelReserve={handleCancelReserve}
-                        handleSkipAction={handleSkipAction}
                     />
                 </div>
 
-                <RoyalCourt
-                    royalDeck={royalDeck}
-                    gameMode={gameMode}
-                    handleSelectRoyal={handleSelectRoyal}
-                />
+                <div className="flex flex-col gap-4 items-center">
+                    <RoyalCourt
+                        royalDeck={royalDeck}
+                        gameMode={effectiveGameMode}
+                        handleSelectRoyal={handleSelectRoyal}
+                    />
+                    
+                    {/* Turn Management Area */}
+                    <div className="flex flex-col gap-3 items-center bg-slate-900/40 p-3 rounded-2xl border border-slate-800/50 backdrop-blur-sm w-full">
+                        <ReplayControls 
+                            undo={historyControls.undo}
+                            redo={historyControls.redo}
+                            canUndo={historyControls.canUndo}
+                            canRedo={historyControls.canRedo}
+                            currentIndex={historyControls.currentIndex}
+                            historyLength={historyControls.historyLength}
+                        />
+                        <button onClick={handleSkipAction} className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors uppercase font-bold tracking-wider">
+                            <SkipForward size={12} /> Skip Turn
+                        </button>
+                    </div>
+                </div>
              </div>
         </div>
 
         {/* Current Player Zone */}
-        <div className={`w-full ${settings.zoneHeight} shrink-0 z-30 flex justify-center items-end pb-4 overflow-visible bg-slate-950/50 backdrop-blur-sm relative border-t border-slate-800/30 transition-all duration-500`}>
+        <div className={`w-full ${settings.zoneHeight} shrink-0 z-30 flex justify-center items-end pb-4 overflow-visible relative border-t border-slate-800/30 transition-all duration-500`}>
              <div className={`w-[98%] max-w-[1800px] transform ${settings.zoneScale} origin-bottom transition-transform duration-500`}>
                 <PlayerZone 
                     player={turn} 
@@ -158,12 +190,12 @@ export default function GemDuelBoard() {
                     royals={playerRoyals[turn]}
                     privileges={privileges[turn]}
                     score={getPlayerScore(turn)} 
-                    isActive={true} 
+                    isActive={!isReviewing && !winner} 
                     onBuyReserved={checkAndInitiateBuyReserved}
                     onUsePrivilege={activatePrivilegeMode}
-                    isPrivilegeMode={gameMode === 'PRIVILEGE_ACTION'}
-                    isStealMode={gameMode === 'STEAL_ACTION' && turn === turn}
-                    isDiscardMode={gameMode === 'DISCARD_EXCESS_GEMS'}
+                    isPrivilegeMode={effectiveGameMode === 'PRIVILEGE_ACTION'}
+                    isStealMode={effectiveGameMode === 'STEAL_ACTION' && turn === turn}
+                    isDiscardMode={effectiveGameMode === 'DISCARD_EXCESS_GEMS'}
                     onGemClick={handleSelfGemClick}
                 />
              </div>

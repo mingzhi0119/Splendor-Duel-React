@@ -21,13 +21,15 @@ export const GameBoard = ({
                     else if (gameMode === 'PRIVILEGE_ACTION') isTarget = !isGold;
                     else if (gameMode === 'BONUS_ACTION') isTarget = gem && gem.type.id === bonusGemTarget;
                     const isEmpty = gem && gem.type.id === 'empty';
+                    const isReviewOrOver = gameMode === 'REVIEW' || gameMode === 'GAME_OVER';
+                    const isInteractive = !isEmpty && !isReviewOrOver;
                     return (
-                        <button key={`${r}-${c}-${gem ? gem.uid : 'null'}`} onClick={() => handleGemClick(r, c)} disabled={isEmpty} className={`relative group w-full h-full rounded-full flex items-center justify-center transition-all duration-150 ${isEmpty ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'}`}>
+                        <button key={`${r}-${c}-${gem ? gem.uid : 'null'}`} onClick={() => handleGemClick(r, c)} disabled={!isInteractive} className={`relative group w-full h-full rounded-full flex items-center justify-center transition-all duration-150 ${!isInteractive ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'}`}>
                             {isEmpty ? <div className="w-2 h-2 rounded-full bg-slate-700/30"></div> : (
                                 <div className={`w-full h-full rounded-full shadow-inner bg-gradient-to-br ${gem.type.color} border ${gem.type.border} 
                                     ${isSelectedGem ? 'ring-2 ring-white scale-105 shadow-[0_0_10px_white]' : 'opacity-90'} 
-                                    ${isTarget ? 'ring-4 ring-white animate-pulse z-20' : ''} 
-                                    ${!isEmpty && gameMode !== 'IDLE' && !isTarget ? 'opacity-20 grayscale' : ''}
+                                    ${isTarget ? 'ring-4 ring-white animate-pulse z-20' : ''}
+                                    ${!isEmpty && gameMode !== 'IDLE' && !isReviewOrOver && !isTarget ? 'opacity-20 grayscale' : ''}
                                 `}>
                                     {isGold && <div className="absolute inset-0 flex items-center justify-center text-yellow-900 font-bold text-xs opacity-50">G</div>}
                                     {isSelectedGem && <div className="absolute inset-0 flex items-center justify-center font-bold text-white drop-shadow-md text-lg">{selectedGems.findIndex(s => s.r === r && s.c === c) + 1}</div>}

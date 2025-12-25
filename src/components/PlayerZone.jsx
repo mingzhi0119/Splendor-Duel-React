@@ -36,6 +36,7 @@ export const PlayerZone = ({ player, inventory, cards, reserved, royals = [], pr
         ${isActive ? 'bg-slate-800 ring-1 ring-emerald-500/50 shadow-lg' : 'bg-slate-900/40'} 
         ${isStealMode ? 'ring-2 ring-rose-500 animate-pulse' : ''}
         ${isDiscardMode && isActive ? 'ring-2 ring-red-500 animate-pulse' : ''}
+        min-h-[160px]
     `}>
       
       {/* Module 1: Identity & Privileges */}
@@ -107,7 +108,7 @@ export const PlayerZone = ({ player, inventory, cards, reserved, royals = [], pr
       </div>
 
       {/* Module 4: Cards (Reserved & Royal) */}
-      <div className="flex items-center flex-1 justify-end gap-8 border-l border-slate-700/50 pl-6 overflow-x-auto no-scrollbar py-1">
+      <div className="flex items-center flex-1 justify-end gap-8 border-l border-slate-700/50 pl-6 py-1">
           
           {/* Reserved Section */}
           <div className="flex flex-col items-start gap-2">
@@ -115,13 +116,13 @@ export const PlayerZone = ({ player, inventory, cards, reserved, royals = [], pr
               
               <div className="flex gap-3 items-center">
                  {reserved.length === 0 && (
-                     <div className="w-32 h-48 rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/30 flex items-center justify-center text-slate-700 text-xs font-medium">
-                        Empty Slot
+                     <div className="w-24 h-32 rounded-lg border-2 border-dashed border-slate-700/50 bg-slate-900/20 flex items-center justify-center text-slate-600 text-[10px] font-medium shrink-0">
+                        Empty
                      </div>
                  )}
                  
                  {reserved.map((card, i) => (
-                    <div key={i} className="transition-transform hover:-translate-y-2 duration-300">
+                    <div key={i} className="transition-transform hover:-translate-y-2 duration-300 shrink-0">
                         <Card 
                             card={card} 
                             canBuy={isActive && onBuyReserved(card)}
@@ -139,7 +140,7 @@ export const PlayerZone = ({ player, inventory, cards, reserved, royals = [], pr
                 <div className="text-[10px] text-yellow-600 uppercase font-bold tracking-wider flex items-center gap-1"><Crown size={12}/> Royals</div>
                 <div className="flex gap-3 items-center">
                     {safeRoyals.map((card, i) => (
-                        <div key={i} className="transition-transform hover:-translate-y-2 duration-300">
+                        <div key={i} className="transition-transform hover:-translate-y-2 duration-300 shrink-0">
                             <Card card={card} isRoyal={true} />
                         </div>
                     ))}

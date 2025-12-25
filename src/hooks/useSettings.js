@@ -25,6 +25,12 @@ export const RESOLUTION_SETTINGS = {
     }
 };
 
+// Global Game Configuration (Preserved during Replay)
+export const GAME_CONFIG = {
+    difficulty: 'NORMAL',
+    playerNames: { p1: 'Player 1', p2: 'Player 2' }
+};
+
 export const useSettings = (defaultResolution = '2k') => {
     const [resolution, setResolution] = useState(defaultResolution);
 
@@ -34,6 +40,7 @@ export const useSettings = (defaultResolution = '2k') => {
         resolution,
         setResolution,
         settings,
-        RESOLUTION_SETTINGS
+        RESOLUTION_SETTINGS,
+        GAME_CONFIG
     };
 };
