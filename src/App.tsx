@@ -1,5 +1,16 @@
-import { useState } from 'react';
-import { RotateCcw, BookOpen, Sun, Moon, Users, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+    RotateCcw,
+    BookOpen,
+    Sun,
+    Moon,
+    Users,
+    User,
+    Globe,
+    Copy,
+    CheckCircle2,
+    ArrowLeft,
+} from 'lucide-react';
 
 import { PlayerZone } from './components/PlayerZone';
 import { DebugPanel } from './components/DebugPanel';
@@ -25,11 +36,14 @@ export default function GemDuelBoard() {
     const [isReviewing, setIsReviewing] = useState(false);
     const [showRulebook, setShowRulebook] = useState(false);
     const [gameConfig, setGameConfig] = useState<{ useBuffs: boolean } | null>(null);
+    const [onlineSetup, setOnlineSetup] = useState(false);
+    const [roomInput, setRoomInput] = useState('');
+    const [copySuccess, setCopySetup] = useState(false);
 
     const { resolution, setResolution, settings, RESOLUTION_SETTINGS, theme, setTheme } =
         useSettings();
 
-    const { state, handlers, getters, historyControls } = useGameLogic();
+    const { state, handlers, getters, historyControls, online } = useGameLogic();
 
     const {
         board,
@@ -82,8 +96,145 @@ export default function GemDuelBoard() {
 
     const effectiveGameMode = isReviewing ? 'REVIEW' : winner ? 'GAME_OVER' : gameMode;
 
+    // --- 0. Online Sync Effect: Auto-start guest game when host starts ---
+    useEffect(() => {
+        if (
+            !state.isOnline &&
+            online.connectionStatus === 'connected' &&
+            !online.isHost &&
+            historyControls.historyLength > 0
+        ) {
+            // If host has already recorded INIT/INIT_DRAFT action, guest should follow the state
+            // This is already handled by useOnlineManager calling recordAction on guest.
+        }
+    }, [state.isOnline, online.connectionStatus, online.isHost, historyControls.historyLength]);
+
     // --- 1. Start Screen ---
     if (historyControls.historyLength === 0) {
+        if (onlineSetup) {
+            return (
+                <div
+                    className={`h-screen w-screen flex flex-col items-center justify-center gap-8 transition-colors duration-500
+                  ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'}`}
+                >
+                    <button
+                        onClick={() => setOnlineSetup(false)}
+                        className="absolute top-8 left-8 flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity"
+                    >
+                        <ArrowLeft size={20} /> Back
+                    </button>
+
+                    <div className="flex flex-col items-center gap-2">
+                        <Globe size={48} className="text-blue-400 animate-pulse" />
+                        <h2 className="text-3xl font-black uppercase tracking-tighter">
+                            Online Nexus
+                        </h2>
+                        <span className="text-xs opacity-50">Powered by WebRTC P2P</span>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-8 w-full max-w-4xl px-8">
+                        {/* Host Section */}
+                        <div
+                            className={`flex-1 p-8 rounded-3xl border-2 transition-all ${theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'} flex flex-col items-center gap-6`}
+                        >
+                            <h3 className="text-xl font-bold">Host a Game</h3>
+                            <p className="text-center text-sm opacity-60">
+                                Share your ID with a friend to start a match.
+                            </p>
+
+                            <div
+                                className={`w-full p-4 rounded-xl flex items-center justify-between gap-4 ${theme === 'dark' ? 'bg-black/40' : 'bg-slate-100'}`}
+                            >
+                                <code className="text-lg font-mono font-bold text-blue-400 break-all">
+                                    {online.peerId || 'Generating...'}
+                                </code>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(online.peerId);
+                                        setCopySetup(true);
+                                        setTimeout(() => setCopySetup(false), 2000);
+                                    }}
+                                    className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 transition-colors"
+                                >
+                                    {copySuccess ? <CheckCircle2 size={20} /> : <Copy size={20} />}
+                                </button>
+                            </div>
+
+                            <div className="w-full flex flex-col gap-3">
+                                <div className="flex items-center justify-between px-2">
+                                    <span className="text-xs opacity-60">Connection Status</span>
+                                    <span
+                                        className={`text-xs font-bold uppercase ${online.connectionStatus === 'connected' ? 'text-emerald-400' : online.connectionStatus === 'connecting' ? 'text-amber-400' : 'text-rose-400'}`}
+                                    >
+                                        {online.connectionStatus}
+                                    </span>
+                                </div>
+                                <button
+                                    disabled={online.connectionStatus !== 'connected'}
+                                    onClick={() =>
+                                        startGame({
+                                            useBuffs: true,
+                                            isPvE: false,
+                                            isOnline: true,
+                                            isHost: true,
+                                        })
+                                    }
+                                    className={`w-full py-4 rounded-2xl font-black uppercase tracking-wider transition-all
+                                        ${
+                                            online.connectionStatus === 'connected'
+                                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-900/20 active:scale-95'
+                                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                        }`}
+                                >
+                                    Start Roguelike Duel
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Join Section */}
+                        <div
+                            className={`flex-1 p-8 rounded-3xl border-2 transition-all ${theme === 'dark' ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'} flex flex-col items-center gap-6`}
+                        >
+                            <h3 className="text-xl font-bold">Join a Game</h3>
+                            <p className="text-center text-sm opacity-60">
+                                Enter your friend's ID to connect to their lobby.
+                            </p>
+
+                            <input
+                                type="text"
+                                placeholder="Paste ID here..."
+                                value={roomInput}
+                                onChange={(e) => setRoomInput(e.target.value)}
+                                className={`w-full p-4 rounded-xl font-mono text-center outline-none border-2 transition-all
+                                    ${theme === 'dark' ? 'bg-black/40 border-slate-800 focus:border-amber-500' : 'bg-slate-100 border-slate-200 focus:border-amber-500'}`}
+                            />
+
+                            <button
+                                onClick={() => online.connectToPeer(roomInput)}
+                                disabled={!roomInput || online.connectionStatus === 'connected'}
+                                className={`w-full py-4 rounded-2xl font-black uppercase tracking-wider transition-all
+                                    ${
+                                        roomInput && online.connectionStatus !== 'connected'
+                                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xl shadow-amber-900/20 active:scale-95'
+                                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                    }`}
+                            >
+                                {online.connectionStatus === 'connecting'
+                                    ? 'Connecting...'
+                                    : 'Connect to Host'}
+                            </button>
+
+                            {online.connectionStatus === 'connected' && (
+                                <div className="text-emerald-400 text-sm font-bold flex items-center gap-2 animate-bounce">
+                                    <CheckCircle2 size={16} /> Connected! Wait for Host...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         if (!gameConfig) {
             return (
                 <div
@@ -128,6 +279,22 @@ export default function GemDuelBoard() {
                             <span className="text-xs opacity-70 max-w-[80%] text-center">
                                 Random starting buffs & distinct playstyles.
                             </span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-4 mt-8">
+                        <div className="h-px w-64 bg-gradient-to-r from-transparent via-slate-500/20 to-transparent" />
+                        <button
+                            onClick={() => setOnlineSetup(true)}
+                            className="group flex items-center gap-3 px-8 py-4 rounded-2xl border-2 border-blue-500/30 hover:border-blue-500 bg-blue-500/5 hover:bg-blue-500/10 transition-all hover:scale-105 active:scale-95"
+                        >
+                            <Globe className="text-blue-400 group-hover:rotate-12 transition-transform" />
+                            <div className="flex flex-col items-start">
+                                <span className="text-lg font-bold">Online Duel</span>
+                                <span className="text-[10px] opacity-50 uppercase tracking-widest font-black">
+                                    Remote Multiplayer
+                                </span>
+                            </div>
                         </button>
                     </div>
 
@@ -332,7 +499,11 @@ export default function GemDuelBoard() {
                     />
 
                     <div className="relative flex flex-col items-center shrink-0">
-                        <StatusBar errorMsg={errorMsg} />
+                        <StatusBar
+                            errorMsg={errorMsg}
+                            isOnline={state.isOnline}
+                            connectionStatus={online.connectionStatus}
+                        />
                         <GameBoard
                             board={board}
                             bag={bag}

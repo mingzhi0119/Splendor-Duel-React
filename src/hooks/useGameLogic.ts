@@ -7,15 +7,23 @@ import { INITIAL_STATE_SKELETON } from '../logic/initialState';
 import { processGemClick, processOpponentGemClick } from '../logic/interactionManager';
 import { getPlayerScore, getCrownCount } from '../logic/selectors';
 import { validateGemSelection } from '../logic/validators';
-import { GameState, Card, PlayerKey, GemCoord, GameAction } from '../types';
+import { GameState, Card, PlayerKey, GemCoord, GameAction, GemTypeObject } from '../types';
 import { computeAiAction } from '../logic/ai/aiPlayer';
+import { useOnlineManager } from './useOnlineManager';
 
 export const useGameLogic = () => {
     // 1. Core State & History
-    const { history, currentIndex, recordAction, undo, redo, canUndo, canRedo } =
-        useActionHistory();
+    const {
+        history,
+        currentIndex,
+        recordAction: recordLocalAction,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+    } = useActionHistory();
 
-    // 2. Derive GameState from History (Rehydration Engine)
+    // 2. Derive GameState from History
     const gameState = useMemo(() => {
         if (history.length === 0) return INITIAL_STATE_SKELETON;
         let state: GameState | null = null;
@@ -27,11 +35,39 @@ export const useGameLogic = () => {
         return state || INITIAL_STATE_SKELETON;
     }, [currentIndex, history]);
 
-    // 3. UI/Transient State (Not in history)
+    // 3. Online Manager
+    const handleRemoteAction = useCallback(
+        (action: GameAction) => {
+            recordLocalAction(action);
+        },
+        [recordLocalAction]
+    );
+
+    const online = useOnlineManager(handleRemoteAction);
+
+    // Wrapper for recording actions (local + broadcast)
+    const recordAction = useCallback(
+        (action: GameAction) => {
+            recordLocalAction(action);
+            if (gameState.isOnline) {
+                online.sendAction(action);
+            }
+        },
+        [gameState.isOnline, online, recordLocalAction]
+    );
+
+    // 4. UI/Transient State
     const [selectedGems, setSelectedGems] = useState<GemCoord[]>([]);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // 4. AI Engine Trigger
+    // 5. Turn Logic Helper
+    const isMyTurn = useMemo(() => {
+        if (!gameState.isOnline) return true;
+        const myRole: PlayerKey = online.isHost ? 'p1' : 'p2';
+        return gameState.turn === myRole;
+    }, [gameState.isOnline, gameState.turn, online.isHost]);
+
+    // 6. AI Engine Trigger
     useEffect(() => {
         if (gameState && gameState.isPvE && gameState.turn === 'p2' && !gameState.winner) {
             const timer = setTimeout(() => {
@@ -39,16 +75,22 @@ export const useGameLogic = () => {
                 if (aiAction) {
                     recordAction(aiAction);
                 }
-            }, 1000); // Small delay for visual comfort
+            }, 1000);
             return () => clearTimeout(timer);
         }
     }, [gameState, recordAction]);
 
+    // 7. Initialization Logic
     const startGame = useCallback(
-        (options: { useBuffs: boolean; isPvE: boolean } = { useBuffs: false, isPvE: false }) => {
+        (
+            options: { useBuffs: boolean; isPvE: boolean; isOnline?: boolean; isHost?: boolean } = {
+                useBuffs: false,
+                isPvE: false,
+            }
+        ) => {
             const fullPool = generateGemPool();
-            const initialBoardFlat = fullPool.slice(0, 25); // First 25 gems for board
-            const initialBag: any[] = []; // Bag starts empty - filled when gems are taken from board
+            const initialBoardFlat = fullPool.slice(0, 25);
+            const initialBag: any[] = [];
             const newBoard: any[][] = [];
             for (let r = 0; r < GRID_SIZE; r++) {
                 const row = [];
@@ -68,7 +110,9 @@ export const useGameLogic = () => {
                 bag: initialBag,
                 market,
                 decks,
-                isPvE: options.isPvE,
+                isPvE: !!options.isPvE,
+                isOnline: !!options.isOnline,
+                isHost: options.isHost ?? true,
             };
 
             if (options.useBuffs) {
@@ -111,6 +155,7 @@ export const useGameLogic = () => {
 
     // --- Handlers (Now dispatch actions) ---
     const handleSelfGemClick = (gemId: string) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.gameMode !== 'DISCARD_EXCESS_GEMS') return;
         if (gameState.winner) return;
 
@@ -121,6 +166,7 @@ export const useGameLogic = () => {
     };
 
     const handleGemClick = (r: number, c: number) => {
+        if (!isMyTurn) return;
         if (!gameState) return;
         if (gameState.winner) return;
 
@@ -143,6 +189,7 @@ export const useGameLogic = () => {
     };
 
     const handleOpponentGemClick = (gemId: string) => {
+        if (!isMyTurn) return;
         if (!gameState) return;
         const result = processOpponentGemClick(gameState, gemId as any);
 
@@ -158,6 +205,7 @@ export const useGameLogic = () => {
     };
 
     const handleConfirmTake = () => {
+        if (!isMyTurn) return;
         if (!gameState) return;
         if (selectedGems.length === 0) return;
         if (gameState.winner) return;
@@ -184,20 +232,17 @@ export const useGameLogic = () => {
     };
 
     const handleReplenish = () => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         if (gameState.bag.length === 0) {
             setErrorMsg('Bag empty!');
             return;
         }
 
-        // Pre-calculate randoms for Extortion/Expansion
         const randoms: any = {};
         const basics = ['red', 'green', 'blue', 'white', 'black'];
-
-        // Expansion
         randoms.expansionColor = basics[Math.floor(Math.random() * basics.length)];
 
-        // Extortion (needs state access)
         const opponent = gameState.turn === 'p1' ? 'p2' : 'p1';
         const stealableColors = Object.keys(gameState.inventories[opponent]).filter(
             (k) => k !== 'gold' && k !== 'pearl' && gameState.inventories[opponent][k] > 0
@@ -211,13 +256,13 @@ export const useGameLogic = () => {
     };
 
     const handleReserveCard = (card: Card, level: number, idx: number) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         if (gameState.playerReserved[gameState.turn].length >= 3) {
             setErrorMsg('Reserve full (max 3).');
             return;
         }
 
-        // Check for gold on board
         let hasGold = false;
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
@@ -238,6 +283,7 @@ export const useGameLogic = () => {
     };
 
     const handleReserveDeck = (level: number) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         if (gameState.playerReserved[gameState.turn].length >= 3) {
             setErrorMsg('Reserve full (max 3).');
@@ -264,6 +310,7 @@ export const useGameLogic = () => {
     };
 
     const initiateBuy = (card: Card, source: string = 'market', marketInfo: any = {}) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
 
         const affordable = canAfford(card);
@@ -289,6 +336,7 @@ export const useGameLogic = () => {
     };
 
     const handleSelectBonusColor = (color: string) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.gameMode !== 'SELECT_CARD_COLOR' || !gameState.pendingBuy)
             return;
         const { card, source, marketInfo } = gameState.pendingBuy;
@@ -306,15 +354,18 @@ export const useGameLogic = () => {
     };
 
     const handleSelectRoyal = (royalCard: any) => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         recordAction({ type: 'SELECT_ROYAL_CARD', payload: { card: royalCard } });
     };
 
     const handleCancelReserve = () => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         recordAction({ type: 'CANCEL_RESERVE' });
     };
     const activatePrivilegeMode = () => {
+        if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
         if (gameState.gameMode !== 'IDLE') return;
 
@@ -332,6 +383,7 @@ export const useGameLogic = () => {
         }
     };
     const checkAndInitiateBuyReserved = (card: Card, execute: boolean = false) => {
+        if (!isMyTurn) return false;
         if (!gameState) return false;
         if (gameState.winner) return false;
         const affordable = canAfford(card);
@@ -355,12 +407,12 @@ export const useGameLogic = () => {
     };
 
     const handleSelectBuff = (buffId: string) => {
+        if (!isMyTurn) return;
         const basics = ['red', 'green', 'blue', 'white', 'black'];
         const randomColor = basics[Math.floor(Math.random() * basics.length)];
 
         let initRandoms = {};
         if (gameState && gameState.turn === 'p1') {
-            // ✅ 为双方生成初始随机数据，包括 Color Preference 的颜色
             initRandoms = {
                 p1: {
                     randomGems: Array.from(
@@ -368,7 +420,6 @@ export const useGameLogic = () => {
                         () => basics[Math.floor(Math.random() * basics.length)]
                     ),
                     reserveCardLevel: Math.floor(Math.random() * 3) + 1,
-                    // ✅ Color Preference 随机颜色
                     preferenceColor: basics[Math.floor(Math.random() * basics.length)],
                 },
                 p2: {
@@ -377,7 +428,6 @@ export const useGameLogic = () => {
                         () => basics[Math.floor(Math.random() * basics.length)]
                     ),
                     reserveCardLevel: Math.floor(Math.random() * 3) + 1,
-                    // ✅ Color Preference 随机颜色
                     preferenceColor: basics[Math.floor(Math.random() * basics.length)],
                 },
             };
@@ -390,6 +440,7 @@ export const useGameLogic = () => {
     };
 
     const handlePeekDeck = (level: number) => {
+        if (!isMyTurn) return;
         recordAction({ type: 'PEEK_DECK', payload: { level } });
     };
 
@@ -400,7 +451,6 @@ export const useGameLogic = () => {
 
     useEffect(() => {
         if (gameState?.toastMessage) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setErrorMsg(gameState.toastMessage);
         }
     }, [gameState?.toastMessage]);
@@ -449,5 +499,6 @@ export const useGameLogic = () => {
             currentIndex,
             historyLength: history.length,
         },
+        online,
     };
 };

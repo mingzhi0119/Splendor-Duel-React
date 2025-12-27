@@ -208,7 +208,9 @@ export const handleTakeBonusGem = (state: GameState, payload: BonusGemPayload): 
     state.bonusGemTarget = null;
 
     const totalGems = Object.values(state.inventories[state.turn]).reduce((a, b) => a + b, 0);
-    if (totalGems > 10) {
+    const gemCap = state.playerBuffs?.[state.turn]?.effects?.passive?.gemCap || 10;
+
+    if (totalGems > gemCap) {
         state.gameMode = GAME_PHASES.DISCARD_EXCESS_GEMS;
         return state;
     }
@@ -239,7 +241,8 @@ export const handleDiscardGem = (state: GameState, payload: string): GameState =
         } as any);
 
         const totalGems = Object.values(currentInv).reduce((a, b) => a + b, 0);
-        if (totalGems <= 10) {
+        const gemCap = state.playerBuffs?.[state.turn]?.effects?.passive?.gemCap || 10;
+        if (totalGems <= gemCap) {
             const nextP = state.nextPlayerAfterRoyal || (state.turn === 'p1' ? 'p2' : 'p1');
             finalizeTurn(state, nextP, currentInv);
         }
@@ -274,7 +277,9 @@ export const handleStealGem = (state: GameState, payload: StealGemPayload): Game
 
     // Check if player now exceeds gem cap
     const totalGems = Object.values(state.inventories[player]).reduce((a, b) => a + b, 0);
-    if (totalGems > 10) {
+    const gemCap = state.playerBuffs?.[player]?.effects?.passive?.gemCap || 10;
+
+    if (totalGems > gemCap) {
         state.gameMode = GAME_PHASES.DISCARD_EXCESS_GEMS;
         return state;
     }

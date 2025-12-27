@@ -141,6 +141,30 @@ export const handleBuyCard = (state: GameState, payload: BuyCardPayload): GameSt
         nextTurn = player;
     }
 
+    // STEAL ability: steal gem from opponent
+    if (abilities.includes(ABILITIES.STEAL.id as any)) {
+        const opponent = player === 'p1' ? 'p2' : 'p1';
+        const oppBuff = state.playerBuffs?.[opponent];
+
+        // Check if opponent has Pacifist buff
+        if (oppBuff?.effects?.passive?.immuneNegative) {
+            state.toastMessage = 'Steal blocked by Pacifist!';
+        } else {
+            const hasStealable = Object.entries(state.inventories[opponent]).some(
+                ([key, count]) => key !== 'gold' && count > 0
+            );
+
+            if (hasStealable) {
+                state.gameMode = GAME_PHASES.STEAL_ACTION;
+                // Save the intended next turn (handles AGAIN ability)
+                state.nextPlayerAfterRoyal = nextTurn;
+                return state;
+            } else {
+                state.toastMessage = 'No stealable gem from opponent - Skill skipped';
+            }
+        }
+    }
+
     // BONUS_GEM ability: take a gem
     if (abilities.includes(ABILITIES.BONUS_GEM.id as any)) {
         const targetColor = String((card as any).bonusColor).toUpperCase();

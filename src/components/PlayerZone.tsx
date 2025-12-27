@@ -141,7 +141,6 @@ export const PlayerZone: React.FC<PlayerZoneProps> = ({
             const myItems = lastFeedback.items.filter((item: any) => item.player === player);
 
             if (myItems.some((i: any) => i.type === 'extortion')) {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setIsExtortionEffect(true);
                 setTimeout(() => setIsExtortionEffect(false), 1000);
             }

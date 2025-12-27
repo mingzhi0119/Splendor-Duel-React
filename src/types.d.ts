@@ -209,6 +209,8 @@ export interface GameState {
     turn: PlayerKey; // Current player ('p1' or 'p2')
     gameMode: GamePhase; // Current game phase
     isPvE: boolean; // True if playing against AI
+    isOnline: boolean; // True if playing online
+    isHost: boolean; // True if this client is the host (p1)
 
     // ========== MODALS & UI ==========
     activeModal: ActiveModal | null;

@@ -14,6 +14,8 @@ export const INITIAL_STATE_SKELETON: GameState = {
     turn: 'p1',
     gameMode: GAME_PHASES.IDLE,
     isPvE: false,
+    isOnline: false,
+    isHost: true,
     pendingReserve: null,
     bonusGemTarget: null,
     pendingBuy: null,
