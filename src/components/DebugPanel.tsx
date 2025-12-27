@@ -5,6 +5,7 @@ interface DebugPanelProps {
     player: PlayerKey;
     onAddCrowns: () => void;
     onAddPoints: () => void;
+    onAddPrivilege: () => void;
     onForceRoyal: () => void;
     theme: 'light' | 'dark';
 }
@@ -13,6 +14,7 @@ export function DebugPanel({
     player,
     onAddCrowns,
     onAddPoints,
+    onAddPrivilege,
     onForceRoyal,
     theme,
 }: DebugPanelProps) {
@@ -49,6 +51,14 @@ export function DebugPanel({
         `}
                 >
                     +1 Point
+                </button>
+                <button
+                    onClick={onAddPrivilege}
+                    className={`text-[9px] py-1 rounded border transition-colors text-left px-2
+          ${theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'}
+        `}
+                >
+                    +1 Privilege
                 </button>
                 <button
                     onClick={onForceRoyal}

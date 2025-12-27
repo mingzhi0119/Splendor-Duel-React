@@ -9,6 +9,7 @@ interface GameActionsProps {
     handleConfirmTake: () => void;
     selectedGems?: any[];
     handleCancelReserve: () => void;
+    handleCancelPrivilege: () => void;
     activeBuff?: Buff;
     onPeekDeck?: (level: number) => void;
     theme: 'light' | 'dark';
@@ -21,6 +22,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
     handleConfirmTake,
     selectedGems = [],
     handleCancelReserve,
+    handleCancelPrivilege,
     activeBuff,
     onPeekDeck,
     theme,
@@ -39,6 +41,14 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 >
                     <X size={20} />
                     Cancel Reserve
+                </button>
+            ) : gameMode === 'PRIVILEGE_ACTION' ? (
+                <button
+                    onClick={handleCancelPrivilege}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-lg transition-all hover:-translate-y-0.5 active:scale-95"
+                >
+                    <X size={20} />
+                    Cancel Privilege
                 </button>
             ) : (
                 // Normal game actions

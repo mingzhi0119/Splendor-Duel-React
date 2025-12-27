@@ -23,6 +23,15 @@ export const handleActivatePrivilege = (state: GameState): GameState => {
 };
 
 /**
+ * Cancel privilege action phase
+ */
+export const handleCancelPrivilege = (state: GameState): GameState => {
+    state.gameMode = GAME_PHASES.IDLE;
+    state.privilegeGemCount = 0;
+    return state;
+};
+
+/**
  * Use privilege to take a gem from board
  *
  * Some buffs (Double Agent) allow taking 2 gems per privilege use.

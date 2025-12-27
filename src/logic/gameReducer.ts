@@ -23,11 +23,16 @@ import {
     handleReserveDeck,
 } from './actions/marketActions';
 import { handleSelectRoyalCard, handleForceRoyalSelection } from './actions/royalActions';
-import { handleUsePrivilege, handleActivatePrivilege } from './actions/privilegeActions';
+import {
+    handleUsePrivilege,
+    handleActivatePrivilege,
+    handleCancelPrivilege,
+} from './actions/privilegeActions';
 import { handleSelectBuff, handleInit, handleInitDraft } from './actions/buffActions';
 import {
     handleDebugAddCrowns,
     handleDebugAddPoints,
+    handleDebugAddPrivilege,
     handlePeekDeck,
     handleCloseModal,
 } from './actions/miscActions';
@@ -68,8 +73,6 @@ export const applyAction = (state: GameState | null, action: GameAction): GameSt
     }
 
     // Use Immer's produce() for efficient immutable updates
-    // Instead of JSON.parse(JSON.stringify()) deep cloning, Immer uses structural sharing
-    // This is 100x faster for large state objects
     return produce(state, (draft) => {
         // Clear previous feedback and UI state to prevent residuals
         draft.lastFeedback = null;
@@ -77,8 +80,6 @@ export const applyAction = (state: GameState | null, action: GameAction): GameSt
 
         switch (type) {
             // ========== INITIALIZATION & SETUP ==========
-            // Note: INIT and INIT_DRAFT should never reach here (handled before produce())
-            // but included for completeness
             case 'SELECT_BUFF':
                 return handleSelectBuff(draft, payload);
 
@@ -127,6 +128,9 @@ export const applyAction = (state: GameState | null, action: GameAction): GameSt
             case 'USE_PRIVILEGE':
                 return handleUsePrivilege(draft, payload);
 
+            case 'CANCEL_PRIVILEGE':
+                return handleCancelPrivilege(draft);
+
             // ========== ROYAL ACTIONS ==========
             case 'FORCE_ROYAL_SELECTION':
                 return handleForceRoyalSelection(draft);
@@ -141,6 +145,9 @@ export const applyAction = (state: GameState | null, action: GameAction): GameSt
             case 'DEBUG_ADD_POINTS':
                 return handleDebugAddPoints(draft, payload);
 
+            case 'DEBUG_ADD_PRIVILEGE':
+                return handleDebugAddPrivilege(draft, payload);
+
             // ========== MODAL ACTIONS ==========
             case 'PEEK_DECK':
                 return handlePeekDeck(draft, payload);
@@ -151,7 +158,6 @@ export const applyAction = (state: GameState | null, action: GameAction): GameSt
             // ========== FALLBACK ==========
             default:
                 console.warn('Unknown action type:', type);
-                // Return undefined to keep current state unchanged
                 break;
         }
     });

@@ -145,9 +145,27 @@ export const computeAiAction = (state: GameState): GameAction | null => {
     // Simple heuristic: Find a 3-gem line that gives colors we need for cards in market
     const potentialLines = findValidGemLines(state);
     if (potentialLines.length > 0) {
-        // Just pick the first valid 3-gem line or longest line
-        const bestLine = potentialLines.sort((a, b) => b.length - a.length)[0];
-        return { type: 'TAKE_GEMS', payload: { coords: bestLine } };
+        const currentTotal = Object.values(state.inventories[aiPlayer]).reduce((a, b) => a + b, 0);
+        const gemCap = state.playerBuffs[aiPlayer]?.effects?.passive?.gemCap || 10;
+        const remainingSpace = gemCap - currentTotal;
+
+        // Sort by length descending
+        const sortedLines = potentialLines.sort((a, b) => b.length - a.length);
+
+        // Filter lines that fit in remaining space to avoid discard phase
+        const safeLines = sortedLines.filter((line) => line.length <= remainingSpace);
+
+        if (safeLines.length > 0) {
+            return { type: 'TAKE_GEMS', payload: { coords: safeLines[0] } };
+        } else if (remainingSpace > 0) {
+            // If no "perfect" line fits, take the longest line that fits the remaining space
+            // (findValidGemLines already returns 1 and 2 gem lines too)
+            const bestFitting = sortedLines.find((l) => l.length <= remainingSpace);
+            if (bestFitting) return { type: 'TAKE_GEMS', payload: { coords: bestFitting } };
+        }
+
+        // If remainingSpace is 0 or no lines fit, we might be forced to skip or replenish
+        // but finding gems usually means remainingSpace > 0.
     }
 
     // Priority 5: Reserve Card (if we have space)

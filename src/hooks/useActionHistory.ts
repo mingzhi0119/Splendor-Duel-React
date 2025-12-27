@@ -40,6 +40,11 @@ export const useActionHistory = () => {
         [history.length]
     );
 
+    const importHistory = useCallback((newHistory: GameAction[]) => {
+        setHistory(newHistory);
+        setCurrentIndex(newHistory.length - 1);
+    }, []);
+
     return {
         history,
         currentIndex,
@@ -47,6 +52,7 @@ export const useActionHistory = () => {
         undo,
         redo,
         jumpToStep,
+        importHistory,
         canUndo: currentIndex > 0,
         canRedo: currentIndex < history.length - 1,
     };

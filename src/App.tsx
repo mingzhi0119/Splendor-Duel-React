@@ -10,6 +10,8 @@ import {
     Copy,
     CheckCircle2,
     ArrowLeft,
+    Download,
+    Upload,
 } from 'lucide-react';
 
 import { PlayerZone } from './components/PlayerZone';
@@ -80,21 +82,56 @@ export default function GemDuelBoard() {
         initiateBuy,
         handleSelectRoyal,
         handleCancelReserve,
+        handleCancelPrivilege,
         activatePrivilegeMode,
         checkAndInitiateBuyReserved,
         handleDebugAddCrowns,
         handleDebugAddPoints,
+        handleDebugAddPrivilege,
         handleForceRoyal,
         handleSelectBonusColor,
         startGame,
         handleSelectBuff,
         handleCloseModal,
         handlePeekDeck,
+        importHistory,
     } = handlers;
 
     const { getPlayerScore, isSelected, getCrownCount } = getters;
 
     const effectiveGameMode = isReviewing ? 'REVIEW' : winner ? 'GAME_OVER' : gameMode;
+
+    const handleDownloadReplay = () => {
+        const data = {
+            version: '4.0.1',
+            timestamp: new Date().toISOString(),
+            history: historyControls.history,
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `GemDuel_Replay_${new Date().getTime()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleUploadReplay = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target?.result as string);
+                if (data.history && Array.isArray(data.history)) {
+                    importHistory(data.history);
+                }
+            } catch (err) {
+                console.error('Failed to parse replay file', err);
+            }
+        };
+        reader.readAsText(file);
+    };
 
     // --- 0. Online Sync Effect: Auto-start guest game when host starts ---
     useEffect(() => {
@@ -104,8 +141,7 @@ export default function GemDuelBoard() {
             !online.isHost &&
             historyControls.historyLength > 0
         ) {
-            // If host has already recorded INIT/INIT_DRAFT action, guest should follow the state
-            // This is already handled by useOnlineManager calling recordAction on guest.
+            // Guest follows host setup via useOnlineManager
         }
     }, [state.isOnline, online.connectionStatus, online.isHost, historyControls.historyLength]);
 
@@ -391,6 +427,37 @@ export default function GemDuelBoard() {
                     RESOLUTION_SETTINGS={RESOLUTION_SETTINGS}
                     theme={theme}
                 />
+
+                {/* Replay Actions */}
+                <div className="flex flex-col gap-2 border-y border-slate-700/30 py-2 my-1">
+                    <button
+                        onClick={handleDownloadReplay}
+                        className={`p-2 rounded-lg backdrop-blur-md border shadow-xl flex items-center gap-2 transition-all justify-center
+                            ${theme === 'dark' ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-600' : 'bg-white/80 hover:bg-slate-50 text-slate-600 border-slate-300'}
+                        `}
+                        title="Download Replay"
+                    >
+                        <Download size={16} />
+                        <span className="text-[10px] font-bold hidden md:inline">Save</span>
+                    </button>
+
+                    <label
+                        className={`p-2 rounded-lg backdrop-blur-md border shadow-xl flex items-center gap-2 transition-all justify-center cursor-pointer
+                            ${theme === 'dark' ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-600' : 'bg-white/80 hover:bg-slate-50 text-slate-600 border-slate-300'}
+                        `}
+                        title="Upload Replay"
+                    >
+                        <Upload size={16} />
+                        <span className="text-[10px] font-bold hidden md:inline">Load</span>
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleUploadReplay}
+                            className="hidden"
+                        />
+                    </label>
+                </div>
+
                 <button
                     onClick={() => setShowRulebook(true)}
                     className={`p-2 rounded-lg backdrop-blur-md border shadow-xl flex items-center gap-2 transition-all justify-center
@@ -415,33 +482,41 @@ export default function GemDuelBoard() {
                 </button>
             </div>
 
-            <button
-                onClick={() => setShowDebug(!showDebug)}
-                className={`fixed top-24 left-4 z-[100] p-2 rounded border text-[10px] transition-colors
-            ${theme === 'dark' ? 'bg-slate-800/80 hover:bg-red-900/60 text-slate-400 border-slate-700' : 'bg-white/80 hover:bg-red-100 text-slate-600 border-slate-300'}
-        `}
-            >
-                {showDebug ? 'CLOSE DEBUG' : 'OPEN DEBUG'}
-            </button>
+            {/* Debug Button Guard: Solo AI keeps it, Local PvP hides after start, Online always hides */}
+            {showDebug ||
+            (!state.isOnline && (state.isPvE || historyControls.historyLength === 0)) ? (
+                <button
+                    onClick={() => setShowDebug(!showDebug)}
+                    className={`fixed top-24 left-4 z-[100] p-2 rounded border text-[10px] transition-colors
+                ${theme === 'dark' ? 'bg-slate-800/80 hover:bg-red-900/60 text-slate-400 border-slate-700' : 'bg-white/80 hover:bg-red-100 text-slate-600 border-slate-300'}
+            `}
+                >
+                    {showDebug ? 'CLOSE DEBUG' : 'OPEN DEBUG'}
+                </button>
+            ) : null}
 
-            {showDebug && (
-                <div className="fixed left-4 top-36 z-[90] flex flex-col gap-4 animate-in slide-in-from-left duration-300">
-                    <DebugPanel
-                        player="p1"
-                        onAddCrowns={() => handleDebugAddCrowns('p1')}
-                        onAddPoints={() => handleDebugAddPoints('p1')}
-                        onForceRoyal={() => handleForceRoyal()}
-                        theme={theme}
-                    />
-                    <DebugPanel
-                        player="p2"
-                        onAddCrowns={() => handleDebugAddCrowns('p2')}
-                        onAddPoints={() => handleDebugAddPoints('p2')}
-                        onForceRoyal={() => handleForceRoyal()}
-                        theme={theme}
-                    />
-                </div>
-            )}
+            {showDebug &&
+                !state.isOnline &&
+                (state.isPvE || historyControls.historyLength === 0) && (
+                    <div className="fixed left-4 top-36 z-[90] flex flex-col gap-4 animate-in slide-in-from-left duration-300">
+                        <DebugPanel
+                            player="p1"
+                            onAddCrowns={() => handleDebugAddCrowns('p1')}
+                            onAddPoints={() => handleDebugAddPoints('p1')}
+                            onAddPrivilege={() => handleDebugAddPrivilege('p1')}
+                            onForceRoyal={() => handleForceRoyal()}
+                            theme={theme}
+                        />
+                        <DebugPanel
+                            player="p2"
+                            onAddCrowns={() => handleDebugAddCrowns('p2')}
+                            onAddPoints={() => handleDebugAddPoints('p2')}
+                            onAddPrivilege={() => handleDebugAddPrivilege('p2')}
+                            onForceRoyal={() => handleForceRoyal()}
+                            theme={theme}
+                        />
+                    </div>
+                )}
 
             {/* Modals */}
             {showRulebook && <Rulebook onClose={() => setShowRulebook(false)} theme={theme} />}
@@ -521,6 +596,7 @@ export default function GemDuelBoard() {
                             handleConfirmTake={handleConfirmTake}
                             selectedGems={selectedGems}
                             handleCancelReserve={handleCancelReserve}
+                            handleCancelPrivilege={handleCancelPrivilege}
                             activeBuff={playerBuffs[turn]}
                             onPeekDeck={handlePeekDeck}
                             theme={theme}
@@ -542,8 +618,8 @@ export default function GemDuelBoard() {
                             <ReplayControls
                                 undo={historyControls.undo}
                                 redo={historyControls.redo}
-                                canUndo={historyControls.canUndo}
-                                canRedo={historyControls.canRedo}
+                                canUndo={!state.isOnline && historyControls.canUndo}
+                                canRedo={!state.isOnline && historyControls.canRedo}
                                 currentIndex={historyControls.currentIndex}
                                 historyLength={historyControls.historyLength}
                                 theme={theme}

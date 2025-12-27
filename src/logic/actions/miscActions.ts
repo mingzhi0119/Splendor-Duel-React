@@ -32,6 +32,27 @@ export const handleDebugAddPoints = (state: GameState, payload: PlayerKey): Game
 };
 
 /**
+ * Debug: Add privilege scroll to a player
+ */
+export const handleDebugAddPrivilege = (state: GameState, payload: PlayerKey): GameState => {
+    const pid = payload;
+    const total = state.privileges.p1 + state.privileges.p2;
+    if (total < 3) {
+        state.privileges[pid]++;
+        addFeedback(state, pid, 'privilege', 1);
+    } else {
+        const opponent = pid === 'p1' ? 'p2' : 'p1';
+        if (state.privileges[opponent] > 0) {
+            state.privileges[opponent]--;
+            state.privileges[pid]++;
+            addFeedback(state, pid, 'privilege', 1);
+            addFeedback(state, opponent, 'privilege', -1);
+        }
+    }
+    return state;
+};
+
+/**
  * Peek at top 3 cards of a deck (Intelligence ability)
  */
 export const handlePeekDeck = (state: GameState, payload: { level: 1 | 2 | 3 }): GameState => {

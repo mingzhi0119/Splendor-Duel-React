@@ -12,28 +12,6 @@ export const useOnlineManager = (onActionReceived: (action: GameAction) => void)
     >('disconnected');
     const [isHost, setIsHost] = useState(false);
 
-    // Initialize Peer
-    useEffect(() => {
-        const newPeer = new Peer();
-
-        newPeer.on('open', (id) => {
-            setPeerId(id);
-            console.log('My peer ID is: ' + id);
-        });
-
-        newPeer.on('connection', (connection) => {
-            console.log('Incoming connection from:', connection.peer);
-            setupConnection(connection);
-            setIsHost(true); // The one who receives connection is host (p1)
-        });
-
-        setPeer(newPeer);
-
-        return () => {
-            newPeer.destroy();
-        };
-    }, [setupConnection]);
-
     const setupConnection = useCallback(
         (connection: DataConnection) => {
             connection.on('open', () => {
@@ -56,6 +34,28 @@ export const useOnlineManager = (onActionReceived: (action: GameAction) => void)
         },
         [onActionReceived]
     );
+
+    // Initialize Peer
+    useEffect(() => {
+        const newPeer = new Peer();
+
+        newPeer.on('open', (id) => {
+            setPeerId(id);
+            console.log('My peer ID is: ' + id);
+        });
+
+        newPeer.on('connection', (connection) => {
+            console.log('Incoming connection from:', connection.peer);
+            setupConnection(connection);
+            setIsHost(true); // The one who receives connection is host (p1)
+        });
+
+        setPeer(newPeer);
+
+        return () => {
+            newPeer.destroy();
+        };
+    }, [setupConnection]);
 
     const connectToPeer = useCallback(
         (id: string) => {

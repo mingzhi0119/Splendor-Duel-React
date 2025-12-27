@@ -21,6 +21,7 @@ export const useGameLogic = () => {
         redo,
         canUndo,
         canRedo,
+        importHistory,
     } = useActionHistory();
 
     // 2. Derive GameState from History
@@ -361,9 +362,20 @@ export const useGameLogic = () => {
 
     const handleCancelReserve = () => {
         if (!isMyTurn) return;
+
         if (!gameState || gameState.winner) return;
+
         recordAction({ type: 'CANCEL_RESERVE' });
     };
+
+    const handleCancelPrivilege = () => {
+        if (!isMyTurn) return;
+
+        if (!gameState || gameState.winner) return;
+
+        recordAction({ type: 'CANCEL_PRIVILEGE' });
+    };
+
     const activatePrivilegeMode = () => {
         if (!isMyTurn) return;
         if (!gameState || gameState.winner) return;
@@ -399,6 +411,11 @@ export const useGameLogic = () => {
     const handleDebugAddPoints = (pid: PlayerKey) => {
         if (!gameState || gameState.winner) return;
         recordAction({ type: 'DEBUG_ADD_POINTS', payload: pid });
+    };
+
+    const handleDebugAddPrivilege = (pid: PlayerKey) => {
+        if (!gameState || gameState.winner) return;
+        recordAction({ type: 'DEBUG_ADD_PRIVILEGE', payload: pid });
     };
 
     const handleForceRoyal = () => {
@@ -476,14 +493,17 @@ export const useGameLogic = () => {
             handleSelectBonusColor,
             handleSelectRoyal,
             handleCancelReserve,
+            handleCancelPrivilege,
             activatePrivilegeMode,
             checkAndInitiateBuyReserved,
             handleDebugAddCrowns,
             handleDebugAddPoints,
+            handleDebugAddPrivilege,
             handleForceRoyal,
             handleSelectBuff,
             handleCloseModal,
             handlePeekDeck,
+            importHistory,
         },
         getters: {
             getPlayerScore: boundGetPlayerScore,
@@ -498,6 +518,7 @@ export const useGameLogic = () => {
             canRedo,
             currentIndex,
             historyLength: history.length,
+            history,
         },
         online,
     };
