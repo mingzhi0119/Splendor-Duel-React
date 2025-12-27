@@ -1,7 +1,9 @@
 {
     "name": "gem-duel",
     "private": true,
-    "version": "4.1.1",
+    "version": "4.1.2",
+    "description": "A competitive strategy gem-collecting game built with React and Electron.",
+    "author": "Mingzhi",
     "main": "electron/main.js",
     "type": "module",
     "scripts": {
@@ -30,8 +32,7 @@
         "win": {
             "target": [
                 "nsis"
-            ],
-            "icon": "public/vite.svg"
+            ]
         },
         "nsis": {
             "oneClick": false,
